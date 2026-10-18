@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>手动驾驶地铁</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Microsoft Yahei,sans-serif}
+body{
+  background:#0b1422;
+  color:#fff;
+  overflow:hidden;
+  height:100vh;
+}
+#gameWrap{
+  width:100vw;
+  height:100vh;
+  position:relative;
+}
+/* 窗外隧道场景 */
+#scene{
+  width:100%;
+  height:62vh;
+  background:#162233;
+  position:relative;
+  overflow:hidden;
+}
+.tunnel-wall{
+  position:absolute;
+  width:200%;
+  height:100%;
+  background-image: 
+    repeating-linear-gradient(90deg,
+      #23344b 0px, #23344b 40px,
+      #1a283b 40px,#1a283b 80px);
+  top:0;left:0;
+}
+.station-sign{
+  position:absolute;
+  right:-300px;
+  top:22%;
+  background:#fff;
+  color:#000;
+  padding:12px 24px;
+  font-size:28px;
+  font-weight:bold;
+  border-radius:8px;
+  transition:right 0s;
+}
+.ground{
+  position:absolute;
+  bottom:0;
+  width:200%;
+  height:120px;
+  background:#2c3b4f;
+}
+.rail{
+  position:absolute;
+  bottom:40px;
+  width:200%;
+  height:8px;
+  background:#777;
+}
+
+/* 仪表盘面板 */
+#dashboard{
+  height:38vh;
+  background:#101a29;
+  border-top:3px solid #304259;
+  padding:16px 20px;
+  display:flex;
+  gap:24px;
+  align-items:center;
+}
+.speed-box{
+  min-width:140px;
+  text-align:center;
+}
+#speedVal{
+  font-size:48px;
+  color:#4cd964;
+  font-weight:bold;
+}
+.unit{font-size:16px;opacity:0.7}
+.info{
+  flex:1;
+}
+.info p{margin:6px 0;font-size:15px;opacity:0.85}
+#hint{
+  font-size:20px;
+  color:#ffcc00;
+  margin:10px 0;
+}
+.ctrl-group{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+  min-width:260px;
+}
+button{
+  padding:12px 8px;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+  cursor:pointer;
+  font-weight:bold;
+}
+.btn-acc{background-color:#27ae60;color:white}
+.btn-dec{background-color:#f39c12;color:white}
+.btn-brake{background-color:#e74c3c;color:white}
+.btn-light{background-color:#2980b9;color:white}
+.btn-horn{background-color:#8e44ad;color:white}
+.btn-restart{background-color:#c0392b;color:white;grid-column:1/-1}
+
+/* 车灯效果 */
+.light-overlay{
+  pointer-events:none;
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+  background:radial-gradient(ellipse 70% 40% at top center, rgba(255,252,220,0.22), transparent 65%);
+  opacity:0;
+  transition:opacity 0.4s;
+}
+.light-overlay.on{opacity:1}
+
+/* 弹窗结果 */
+#resultModal{
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,0.75);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:99;
+}
+.modal-box{
+  background:#182436;
+  padding:40px 50px;
+  border-radius:14px;
+  text-align:center;
+}
+.modal-box h2{margin-bottom:16px;font-size:28px}
+.modal-box p{margin-bottom:24px;opacity:0.85}
+.modal-box button{padding:12px 30px;font-size:17px}
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <div id="scene">
+    <div class="tunnel-wall" id="wall"></div>
+    <div class="ground" id="groundEl"></div>
+    <div class="rail" id="railEl"></div>
+    <div class="station-sign" id="stationLabel">下一站：滨海湾</div>
+    <div class="light-overlay" id="headLight"></div>
+  </div>
+
+  <div id="dashboard">
+    <div class="speed-box">
+      <div id="speedVal">0</div>
+      <div class="unit">km/h</div>
+    </div>
+
+    <div class="info">
+      <div id="hint">操作：加速｜减速｜刹车，到站平稳停车！</div>
+      <p>距离到站：<span id="distText">1200</span> m</p>
+      <p>状态：<span id="statusText">正常行驶</span></p>
+      <p>得分：<span id="scoreText">0</span></p>
+    </div>
+
+    <div class="ctrl-group">
+      <button class="btn-acc" id="btnAcc">加速 ▲</button>
+      <button class="btn-dec" id="btnDec">减速 ▼</button>
+      <button class="btn-brake" id="btnBrake">紧急刹车</button>
+      <button class="btn-light" id="btnLight">车灯</button>
+      <button class="btn-horn" id="btnHorn">鸣笛</button>
+      <button class="btn-restart" id="btnReset">重新开始游戏</button>
+    </div>
+  </div>
+</div>
+
+<div id="resultModal">
+  <div class="modal-box">
+    <h2 id="resTitle"></h2>
+    <p id="resMsg"></p>
+    <button id="modalRestart">再来一局</button>
+  </div>
+</div>
+
+<script>
+//游戏变量
+let speed = 0;        // km/h
+let distance = 1200;  //距离到站米
+let score = 0;
+let lightOn = false;
+let gameOver = false;
+
+//DOM
+const speedVal = document.getElementById('speedVal');
+const distText = document.getElementById('distText');
+const statusText = document.getElementById('statusText');
+const scoreText = document.getElementById('scoreText');
+const hint = document.getElementById('hint');
+const headLight = document.getElementById('headLight');
+const wall = document.getElementById('wall');
+const groundEl = document.getElementById('groundEl');
+const railEl = document.getElementById('railEl');
+const stationLabel = document.getElementById('stationLabel');
+
+const resultModal = document.getElementById('resultModal');
+const resTitle = document.getElementById('resTitle');
+const resMsg = document.getElementById('resMsg');
+
+//按钮
+const btnAcc = document.getElementById('btnAcc');
+const btnDec = document.getElementById('btnDec');
+const btnBrake = document.getElementById('btnBrake');
+const btnLight = document.getElementById('btnLight');
+const btnHorn = document.getElementById('btnHorn');
+const btnReset = document.getElementById('btnReset');
+const modalRestart = document.getElementById('modalRestart');
+
+//鸣笛音频(Web Audio简易蜂鸣模拟)
+function horn(){
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.frequency.value = 440;
+  osc.type = 'square';
+  gain.gain.value = 0.12;
+  osc.start();
+  setTimeout(()=>osc.stop(),220);
+}
+
+//重置游戏
+function resetGame(){
+  speed = 0;
+  distance = 1200;
+  score = 0;
+  lightOn = false;
+  gameOver = false;
+  headLight.classList.remove('on');
+  stationLabel.style.right = "-300px";
+  resultModal.style.display = 'none';
+  updateUI();
+}
+
+function updateUI(){
+  speedVal.innerText = Math.round(speed);
+  distText.innerText = Math.round(distance);
+  scoreText.innerText = score;
+
+  if(gameOver) return;
+  if(distance <=0){
+    //到达站点区域
+    if(speed >4){
+      //冲站
+      showResult("任务失败！","速度太快冲过车站！请提前减速刹车。");
+      statusText.innerText="冲站失败";
+      gameOver=true;
+    }else{
+      //成功停车
+      score += Math.round(100 + (4-speed)*20);
+      showResult("✅ 到站停车成功！","平稳停靠，得分 "+score);
+      gameOver=true;
+    }
+  }else if(distance <250){
+    statusText.innerText="接近车站，请减速！";
+  }else{
+    statusText.innerText="正常行驶";
+  }
+}
+
+function showResult(title,msg){
+  resTitle.innerText=title;
+  resMsg.innerText=msg;
+  resultModal.style.display='flex';
+}
+
+//游戏循环
+function gameLoop(){
+  if(gameOver){
+    requestAnimationFrame(gameLoop);
+    return;
+  }
+
+  //物理模拟
+  if(btnAcc.dataset.press==="1"){
+    speed +=0.22;
+  }
+  if(btnDec.dataset.press==="1"){
+    speed -=0.18;
+  }
+  if(btnBrake.dataset.press==="1"){
+    speed -=0.65;
+  }
+
+  speed = Math.max(0, Math.min(speed,80));
+
+  //距离消耗，速度转米每帧
+  const msPerFrame = speed / 3.6 * 0.016;
+  distance -= msPerFrame;
+
+  //隧道背景滚动，越快滚的越快
+  const scroll = speed * 2.2;
+  wall.style.transform = `translateX(-${scroll%80}px)`;
+  groundEl.style.transform = `translateX(-${scroll%80}px)`;
+  railEl.style.transform = `translateX(-${scroll%80}px)`;
+
+  //站点牌子靠近
+  if(distance < 450){
+    const pos = Math.max(10, 450-distance);
+    stationLabel.style.right = pos+"px";
+  }
+
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+
+//按钮按下松开
+btnAcc.addEventListener('mousedown',()=>btnAcc.dataset.press="1");
+btnAcc.addEventListener('mouseup',()=>btnAcc.dataset.press="0");
+btnAcc.addEventListener('mouseleave',()=>btnAcc.dataset.press="0");
+
+btnDec.addEventListener('mousedown',()=>btnDec.dataset.press="1");
+btnDec.addEventListener('mouseup',()=>btnDec.dataset.press="0");
+btnDec.addEventListener('mouseleave',()=>btnDec.dataset.press="0");
+
+btnBrake.addEventListener('mousedown',()=>btnBrake.dataset.press="1");
+btnBrake.addEventListener('mouseup',()=>btnBrake.dataset.press="0");
+btnBrake.addEventListener('mouseleave',()=>btnBrake.dataset.press="0");
+
+btnLight.onclick = ()=>{
+  lightOn = !lightOn;
+  headLight.classList.toggle('on',lightOn);
+};
+btnHorn.onclick = horn;
+btnReset.onclick = resetGame;
+modalRestart.onclick = resetGame;
+
+//键盘支持
+document.addEventListener('keydown',(e)=>{
+  if(gameOver) return;
+  switch(e.key){
+    case 'ArrowUp': btnAcc.dataset.press="1";break;
+    case 'ArrowDown': btnDec.dataset.press="1";break;
+    case ' ': btnBrake.dataset.press="1";e.preventDefault();break;
+  }
+})
+document.addEventListener('keyup',(e)=>{
+  switch(e.key){
+    case 'ArrowUp': btnAcc.dataset.press="0";break;
+    case 'ArrowDown': btnDec.dataset.press="0";break;
+    case ' ': btnBrake.dataset.press="0";break;
+  }
+})
+
+resetGame();
+gameLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抢铁南站</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft Yahei", sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #e8f4ff 0%, #ffffff 45%, #cce5ff 100%);
+            color: #142850;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 48px 24px;
+        }
+
+        .glass-window {
+            width: 100%;
+            max-width: 1060px;
+            border-radius: 18px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.55);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            box-shadow:
+                0 30px 60px rgba(20, 40, 80, 0.18),
+                0 10px 25px rgba(20, 40, 80, 0.12),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+            position: relative;
+        }
+
+        .glass-window::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            border-radius: 18px;
+            padding: 1px;
+            background: linear-gradient(
+                135deg,
+                rgba(255, 255, 255, 0.95),
+                rgba(204, 229, 255, 0.45) 40%,
+                rgba(255, 255, 255, 0.6) 70%,
+                rgba(180, 210, 245, 0.5)
+            );
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+                    mask-composite: exclude;
+            pointer-events: none;
+            opacity: 0.85;
+        }
+
+        .glass-window::after {
+            content: "";
+            position: absolute;
+            left: 20px;
+            right: 20px;
+            bottom: 20px;
+            height: 26px;
+            background: radial-gradient(ellipse at center, rgba(20, 40, 80, 0.12), transparent 70%);
+            filter: blur(6px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .glass-titlebar {
+            height: 44px;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0.72),
+                rgba(226, 240, 255, 0.45)
+            );
+            border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            user-select: none;
+            position: relative;
+            z-index: 2;
+        }
+
+        .glass-titlebar:active {
+            cursor: grabbing;
+        }
+
+        .glass-title-text {
+            font-size: 14px;
+            letter-spacing: 3px;
+            color: #1f3558;
+            font-weight: 500;
+            opacity: 0.85;
+        }
+
+        .glass-content {
+            padding: 40px;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0.45),
+                rgba(241, 248, 255, 0.35)
+            );
+            position: relative;
+            z-index: 2;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            letter-spacing: 8px;
+            text-align: center;
+            color: #142850;
+            margin-bottom: 24px;
+            text-shadow: 0 2px 10px rgba(20, 40, 80, 0.12);
+        }
+
+        nav {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        nav a {
+            color: #1f3558;
+            text-decoration: none;
+            font-size: 1.15rem;
+            margin: 0 12px;
+            padding: 10px 22px;
+            border: 1px solid rgba(31, 53, 88, 0.22);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.45);
+            transition: all 0.3s ease;
+        }
+
+        nav a:hover {
+            background: rgba(255, 255, 255, 0.75);
+            border-color: rgba(31, 53, 88, 0.45);
+            box-shadow: 0 6px 20px rgba(20, 40, 80, 0.12);
+        }
+
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 22px;
+        }
+
+        .photo-grid img {
+            width: 100%;
+            height: 180px;
+            object-fit: cover;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.35s ease, box-shadow 0.35s ease;
+            box-shadow: 0 6px 18px rgba(20, 40, 80, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        .photo-grid img:hover {
+            transform: translateY(-4px) scale(1.03);
+            box-shadow: 0 14px 30px rgba(20, 40, 80, 0.2);
+        }
+
+        .lightbox {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(10, 20, 40, 0.78);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 24px;
+        }
+
+        .lightbox.show {
+            display: flex;
+        }
+
+        .lightbox img {
+            max-width: 92%;
+            max-height: 88vh;
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 40px;
+            font-size: 0.88rem;
+            letter-spacing: 2px;
+            color: #142850;
+            opacity: 0.55;
+            position: relative;
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-window" id="glassWindow">
+        <div class="glass-titlebar" id="dragBar">
+            <div class="glass-title-text">小扫把</div>
+        </div>
+
+        <div class="glass-content">
+            <h1>抢铁南</h1>
+
+            <nav>
+                <a href="index.html">韶八</a>
+                <a href="album.html">抢铁南</a>
+            </nav>
+
+            <div class="photo-grid">
+                <img src="韶八.jpg" alt="车车1" onclick="openLightbox(this.src)">
+                <img src="瑞雪.jpg" alt="车车2" onclick="openLightbox(this.src)">
+                <img src="瑞龙.jpg" alt="车车3" onclick="openLightbox(this.src)">
+                <img src="百香果.jpg" alt="车车4" onclick="openLightbox(this.src)">
+                <video src="韶八.mp4'contols style="max-width:100%;"></video>
+            </div>
+
+            <footer>
+                &copy; 跨越---韶八
+            </footer>
+        </div>
+    </div>
+
+    <div class="lightbox" id="lightbox">
+        <img id="lb-img" src="" alt="杭州东">
+    </div>
+
+    <script>
+        const win = document.getElementById('glassWindow');
+        const dragBar = document.getElementById('dragBar');
+        const lb = document.getElementById('lightbox');
+        const lbImg = document.getElementById('lb-img');
+
+        let isDrag = false;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        dragBar.addEventListener('mousedown', function (e) {
+            isDrag = true;
+
+            const rect = win.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+
+            win.style.position = 'absolute';
+            win.style.left = rect.left + 'px';
+            win.style.top = rect.top + 'px';
+            win.style.margin = '0';
+        });
+
+        document.addEventListener('mousemove', function (e) {
+            if (!isDrag) return;
+
+            let newX = e.clientX - offsetX;
+            let newY = e.clientY - offsetY;
+
+            newX = Math.max(0, Math.min(window.innerWidth - win.offsetWidth, newX));
+            newY = Math.max(0, Math.min(window.innerHeight - win.offsetHeight, newY));
+
+            win.style.left = newX + 'px';
+            win.style.top = newY + 'px';
+        });
+
+        document.addEventListener('mouseup', function () {
+            isDrag = false;
+        });
+
+        function openLightbox(src) {
+            lbImg.src = src;
+            lb.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            lb.classList.remove('show');
+            document.body.style.overflow = 'auto';
+        }
+
+        lb.addEventListener('click', function (e) {
+            if (e.target === lb) {
+                closeLightbox();
+            }
+        });
+    </script>
+</body>
+</html>
